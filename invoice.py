@@ -33,19 +33,26 @@ def create_invoice():
         services_provided = data.get('services_provided')
         amount = data.get('amount')
         due_date = data.get('due_date')
-        
+        company_id = data.get('company_id')
+        payment_status = data.get('payment_status', 'Pending')  # Default to 'Pending' if not provided
+
         # Auto-generate a unique invoice number
         invoice_number = str(uuid.uuid4())[:8]
 
         # Insert new invoice data into the database
         insert_invoice_query = """
-            INSERT INTO invoices (invoice_number, client_name, services_provided, amount, due_date)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO invoices (invoice_number, client_name, services_provided, amount, due_date, payment_status, company_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(insert_invoice_query, (invoice_number, client_name, services_provided, amount, due_date))
+        cursor.execute(insert_invoice_query, (
+            invoice_number, client_name, services_provided, amount, due_date, payment_status, company_id
+        ))
         connection.commit()
 
-        return jsonify({'message': 'Invoice created successfully', 'invoice_number': invoice_number}), 201
+        return jsonify({
+            'message': 'Invoice created successfully',
+            'invoice_number': invoice_number
+        }), 201
 
     except Error as e:
         return jsonify({'error': str(e)}), 500
@@ -55,6 +62,7 @@ def create_invoice():
             cursor.close()
             connection.close()
 
+
 # Endpoint to list all invoices
 @app.route('/api/invoices', methods=['GET'])
 def list_invoices():
@@ -62,13 +70,21 @@ def list_invoices():
         connection = db_connection()
         cursor = connection.cursor(dictionary=True)
 
-        # Query to fetch all invoices
+        # Base query to fetch all invoices
         fetch_invoices_query = """
-            SELECT invoice_number, client_name, services_provided, amount, due_date, payment_status, created_at
+            SELECT invoice_number, client_name, services_provided, amount, due_date, payment_status, company_id, created_at
             FROM invoices
-            ORDER BY created_at DESC
+            WHERE 1 = 1
         """
-        cursor.execute(fetch_invoices_query)
+
+        # Filtering by company_id if provided
+        company_id = request.args.get('company_id')
+        if company_id:
+            fetch_invoices_query += " AND company_id = %s"
+            cursor.execute(fetch_invoices_query, (company_id,))
+        else:
+            cursor.execute(fetch_invoices_query)
+
         invoices = cursor.fetchall()
 
         return jsonify(invoices), 200
@@ -80,6 +96,7 @@ def list_invoices():
         if connection:
             cursor.close()
             connection.close()
+
 
 # Run the Flask application
 if __name__ == '__main__':

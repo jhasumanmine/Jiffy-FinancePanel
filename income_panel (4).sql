@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 22, 2024 at 12:30 PM
+-- Generation Time: Nov 14, 2024 at 06:29 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -24,6 +24,36 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `balance_sheet`
+--
+
+CREATE TABLE `balance_sheet` (
+  `id` int(11) NOT NULL,
+  `date` date NOT NULL,
+  `assets` decimal(15,2) NOT NULL,
+  `liabilities` decimal(15,2) NOT NULL,
+  `equity` decimal(15,2) NOT NULL,
+  `company_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cash_flow`
+--
+
+CREATE TABLE `cash_flow` (
+  `id` int(11) NOT NULL,
+  `date` date NOT NULL,
+  `inflows` decimal(10,2) NOT NULL,
+  `outflows` decimal(10,2) NOT NULL,
+  `net_cash_flow` decimal(10,2) NOT NULL,
+  `company_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `clients`
 --
 
@@ -39,6 +69,20 @@ CREATE TABLE `clients` (
 
 INSERT INTO `clients` (`id`, `client_name`, `created_at`) VALUES
 (1, 'Client A', '2024-10-17 10:32:03');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `companies`
+--
+
+CREATE TABLE `companies` (
+  `id` int(11) NOT NULL,
+  `company_name` varchar(255) NOT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `contact_number` varchar(20) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -85,17 +129,19 @@ CREATE TABLE `expenses` (
   `category` varchar(255) NOT NULL,
   `amount` decimal(10,2) NOT NULL,
   `notes` text DEFAULT NULL,
-  `payment_method` varchar(255) DEFAULT NULL
+  `payment_method` varchar(255) DEFAULT NULL,
+  `company_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `expenses`
 --
 
-INSERT INTO `expenses` (`id`, `date`, `category`, `amount`, `notes`, `payment_method`) VALUES
-(2, '2024-10-05', 'Travel', 1200.50, 'Flight tickets for conference', 'Debit Card'),
-(4, '2024-10-10', 'Travel', 1200.00, 'Updated notes for the business trip.', 'Credit Card'),
-(5, '2024-10-16', 'Marketing', 1500.00, 'Social media ads', 'Credit Card');
+INSERT INTO `expenses` (`id`, `date`, `category`, `amount`, `notes`, `payment_method`, `company_id`) VALUES
+(2, '2024-10-05', 'Travel', 1200.50, 'Flight tickets for conference', 'Debit Card', 2),
+(4, '2024-10-10', 'Travel', 1200.00, 'Updated notes for the business trip.', 'Credit Card', 3),
+(5, '2024-10-16', 'Marketing', 1500.00, 'Social media ads', 'Credit Card', 4),
+(6, '2024-11-12', 'Utilities', 250.50, 'Monthly electricity bill', 'Bank Transfer', 1);
 
 -- --------------------------------------------------------
 
@@ -111,17 +157,20 @@ CREATE TABLE `income` (
   `category` enum('Product Sale','Service','Investment','Other') NOT NULL,
   `payment_method` enum('Bank Transfer','Credit Card','Cash','PayPal') NOT NULL,
   `transaction_id` varchar(255) DEFAULT NULL,
-  `notes` text DEFAULT NULL
+  `notes` text DEFAULT NULL,
+  `company_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `income`
 --
 
-INSERT INTO `income` (`id`, `date`, `source`, `amount`, `category`, `payment_method`, `transaction_id`, `notes`) VALUES
-(1, '2024-10-09', 'Client A', 5000.00, 'Service', 'Bank Transfer', 'TXN12345678', 'Payment for Project XYZ - Phase 1'),
-(2, '2024-10-10', 'Freelance Project', 2500.00, '', 'Bank Transfer', 'TX123456', 'Payment received for project deliverables'),
-(3, '2024-10-10', 'Freelance Project', 2500.00, '', 'Bank Transfer', 'TX123456', 'Payment received for project deliverables');
+INSERT INTO `income` (`id`, `date`, `source`, `amount`, `category`, `payment_method`, `transaction_id`, `notes`, `company_id`) VALUES
+(1, '2024-10-09', 'Client A', 5000.00, 'Service', 'Bank Transfer', 'TXN12345678', 'Payment for Project XYZ - Phase 1', 2),
+(2, '2024-10-10', 'Freelance Project', 2500.00, '', 'Bank Transfer', 'TX123456', 'Payment received for project deliverables', 3),
+(3, '2024-10-10', 'Freelance Project', 2500.00, '', 'Bank Transfer', 'TX123456', 'Payment received for project deliverables', 4),
+(4, '2024-10-10', 'Freelance Project', 2500.00, '', 'Bank Transfer', 'TX123456', 'Payment received for project deliverables', NULL),
+(5, '2024-11-12', 'Product Sale', 1500.00, 'Product Sale', 'Credit Card', 'TX123456', 'Quarterly product sale revenue', 1);
 
 -- --------------------------------------------------------
 
@@ -137,6 +186,7 @@ CREATE TABLE `invoices` (
   `amount` decimal(10,2) NOT NULL,
   `due_date` date NOT NULL,
   `payment_status` enum('Paid','Pending','Overdue') DEFAULT 'Pending',
+  `company_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -144,8 +194,24 @@ CREATE TABLE `invoices` (
 -- Dumping data for table `invoices`
 --
 
-INSERT INTO `invoices` (`id`, `invoice_number`, `client_name`, `services_provided`, `amount`, `due_date`, `payment_status`, `created_at`) VALUES
-(1, '8d284b68', 'ABC Corp', 'Consulting services for project planning and development', 1200.50, '2024-11-15', 'Pending', '2024-10-21 09:23:59');
+INSERT INTO `invoices` (`id`, `invoice_number`, `client_name`, `services_provided`, `amount`, `due_date`, `payment_status`, `company_id`, `created_at`) VALUES
+(1, '8d284b68', 'ABC Corp', 'Consulting services for project planning and development', 1200.50, '2024-11-15', 'Pending', NULL, '2024-10-21 09:23:59'),
+(2, '17e1bd8b', 'John Doe', 'Website Development', 1500.00, '2024-12-01', 'Pending', 123, '2024-11-12 07:09:39');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `notifications`
+--
+
+CREATE TABLE `notifications` (
+  `notification_id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status` enum('unread','read') DEFAULT 'unread'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -177,17 +243,18 @@ CREATE TABLE `profit_loss` (
   `date` date NOT NULL,
   `income` decimal(10,2) NOT NULL,
   `expenses` decimal(10,2) NOT NULL,
-  `net_profit` decimal(10,2) NOT NULL
+  `net_profit` decimal(10,2) NOT NULL,
+  `company_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `profit_loss`
 --
 
-INSERT INTO `profit_loss` (`id`, `date`, `income`, `expenses`, `net_profit`) VALUES
-(1, '2024-10-01', 1000.00, 500.00, 500.00),
-(2, '2024-10-02', 1500.00, 700.00, 800.00),
-(3, '2024-10-03', 2000.00, 900.00, 1100.00);
+INSERT INTO `profit_loss` (`id`, `date`, `income`, `expenses`, `net_profit`, `company_id`) VALUES
+(1, '2024-10-01', 1000.00, 500.00, 500.00, NULL),
+(2, '2024-10-02', 1500.00, 700.00, 800.00, NULL),
+(3, '2024-10-03', 2000.00, 900.00, 1100.00, NULL);
 
 -- --------------------------------------------------------
 
@@ -227,14 +294,46 @@ CREATE TABLE `project_financials` (
   `profit` decimal(10,2) GENERATED ALWAYS AS (`income` - `expenses`) STORED
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Indexes for dumped tables
 --
 
 --
+-- Indexes for table `balance_sheet`
+--
+ALTER TABLE `balance_sheet`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `company_id` (`company_id`);
+
+--
+-- Indexes for table `cash_flow`
+--
+ALTER TABLE `cash_flow`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `company_id` (`company_id`);
+
+--
 -- Indexes for table `clients`
 --
 ALTER TABLE `clients`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `companies`
+--
+ALTER TABLE `companies`
   ADD PRIMARY KEY (`id`);
 
 --
@@ -254,20 +353,30 @@ ALTER TABLE `employee`
 -- Indexes for table `expenses`
 --
 ALTER TABLE `expenses`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `company_id` (`company_id`);
 
 --
 -- Indexes for table `income`
 --
 ALTER TABLE `income`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `company_id` (`company_id`);
 
 --
 -- Indexes for table `invoices`
 --
 ALTER TABLE `invoices`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `invoice_number` (`invoice_number`);
+  ADD UNIQUE KEY `invoice_number` (`invoice_number`),
+  ADD KEY `company_id` (`company_id`);
+
+--
+-- Indexes for table `notifications`
+--
+ALTER TABLE `notifications`
+  ADD PRIMARY KEY (`notification_id`),
+  ADD KEY `user_id` (`user_id`);
 
 --
 -- Indexes for table `payroll_management`
@@ -295,14 +404,39 @@ ALTER TABLE `project_financials`
   ADD PRIMARY KEY (`project_id`);
 
 --
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
+
+--
+-- AUTO_INCREMENT for table `balance_sheet`
+--
+ALTER TABLE `balance_sheet`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `cash_flow`
+--
+ALTER TABLE `cash_flow`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `clients`
 --
 ALTER TABLE `clients`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `companies`
+--
+ALTER TABLE `companies`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `download_logs`
@@ -320,19 +454,25 @@ ALTER TABLE `employee`
 -- AUTO_INCREMENT for table `expenses`
 --
 ALTER TABLE `expenses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `income`
 --
 ALTER TABLE `income`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `invoices`
 --
 ALTER TABLE `invoices`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `notifications`
+--
+ALTER TABLE `notifications`
+  MODIFY `notification_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `payroll_management`
@@ -359,8 +499,32 @@ ALTER TABLE `project_financials`
   MODIFY `project_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `balance_sheet`
+--
+ALTER TABLE `balance_sheet`
+  ADD CONSTRAINT `balance_sheet_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `cash_flow`
+--
+ALTER TABLE `cash_flow`
+  ADD CONSTRAINT `cash_flow_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `notifications`
+--
+ALTER TABLE `notifications`
+  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `payroll_management`

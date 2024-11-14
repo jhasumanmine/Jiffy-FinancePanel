@@ -26,7 +26,7 @@ def add_income():
     data = request.json
     
     # Validate required fields
-    required_fields = ['date', 'source', 'amount', 'category', 'payment_method']
+    required_fields = ['date', 'source', 'amount', 'category', 'payment_method', 'company_id']
     for field in required_fields:
         if field not in data or not data[field]:
             return jsonify({"error": f"{field} is required"}), 400
@@ -38,10 +38,10 @@ def add_income():
         
         cursor = connection.cursor()
 
-        # Insert income data into the database
+        # Insert income data into the database, including company_id
         query = """
-            INSERT INTO income (date, source, amount, category, payment_method, transaction_id, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO income (date, source, amount, category, payment_method, transaction_id, notes, company_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(query, (
             data['date'],
@@ -50,7 +50,8 @@ def add_income():
             data['category'],
             data['payment_method'],
             data.get('transaction_id', None),  # Optional field
-            data.get('notes', None)  # Optional field
+            data.get('notes', None),  # Optional field
+            data['company_id']  # Newly added required field
         ))
         connection.commit()
         return jsonify({"message": "Income entry added successfully"}), 201
@@ -75,17 +76,18 @@ def get_income_records():
 
         # Base query
         query = """
-            SELECT id, date, source, amount, category, payment_method, transaction_id, notes 
+            SELECT id, date, source, amount, category, payment_method, transaction_id, notes, company_id 
             FROM income
             WHERE 1 = 1
         """
 
-        # Filtering by date range, category, and source
+        # Filtering by date range, category, source, and company_id
         params = []
         date_from = request.args.get('date_from')
         date_to = request.args.get('date_to')
         category = request.args.get('category')
         source = request.args.get('source')
+        company_id = request.args.get('company_id')  # New filter for company_id
 
         if date_from:
             query += " AND date >= %s"
@@ -99,7 +101,10 @@ def get_income_records():
         if source:
             query += " AND source LIKE %s"
             params.append(f"%{source}%")
-        
+        if company_id:
+            query += " AND company_id = %s"
+            params.append(company_id)
+
         # Sorting (default to sorting by date)
         sort_by = request.args.get('sort_by', 'date')
         sort_order = request.args.get('sort_order', 'ASC')  # ASC or DESC
@@ -140,13 +145,12 @@ def get_income_records():
             connection.close()
 
 
-# Expense management endpoint
 @app.route('/api/expenses', methods=['POST'])
 def add_expense():
     data = request.json
     
     # Validate required fields
-    required_fields = ['date', 'category', 'amount', 'payment_method']
+    required_fields = ['date', 'category', 'amount', 'payment_method', 'company_id']
     for field in required_fields:
         if field not in data or not data[field]:
             return jsonify({"error": f"{field} is required"}), 400
@@ -160,15 +164,16 @@ def add_expense():
 
         # Insert expense data into the database
         query = """
-            INSERT INTO expenses (date, category, amount, notes, payment_method)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO expenses (date, category, amount, notes, payment_method, company_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """
         cursor.execute(query, (
             data['date'],
             data['category'],
             data['amount'],
             data.get('notes', None),  # Optional field
-            data['payment_method']
+            data['payment_method'],
+            data['company_id']
         ))
         connection.commit()
         return jsonify({"message": "Expense entry added successfully"}), 201
@@ -183,7 +188,7 @@ def add_expense():
 
 
 
-# Route for viewing and managing expenses
+
 @app.route('/api/expenses', methods=['GET'])
 def get_expenses():
     try:
@@ -195,7 +200,7 @@ def get_expenses():
 
         # Base query
         query = """
-            SELECT id, date, category, amount, notes, payment_method
+            SELECT id, date, category, amount, notes, payment_method, company_id
             FROM expenses
             WHERE 1 = 1
         """
@@ -206,6 +211,12 @@ def get_expenses():
         if category:
             query += " AND category = %s"
             params.append(category)
+
+        # Filter by company_id
+        company_id = request.args.get('company_id')
+        if company_id:
+            query += " AND company_id = %s"
+            params.append(company_id)
 
         # Searching by amount, date, or notes
         search = request.args.get('search')
@@ -253,7 +264,7 @@ def get_expenses():
             cursor.close()
             connection.close()
 
-# Route for deleting an expense entry
+
 @app.route('/api/expenses/<int:id>', methods=['DELETE'])
 def delete_expense(id):
     try:
@@ -263,13 +274,23 @@ def delete_expense(id):
         
         cursor = connection.cursor()
 
-        # Delete query
-        delete_query = "DELETE FROM expenses WHERE id = %s"
-        cursor.execute(delete_query, (id,))
-        connection.commit()
+        # Check if the expense exists with the provided company_id
+        company_id = request.args.get('company_id')
+        if not company_id:
+            return jsonify({"error": "company_id is required"}), 400
 
-        if cursor.rowcount == 0:
-            return jsonify({"error": "Expense not found"}), 404
+        # Verify that the expense belongs to the specified company_id
+        select_query = "SELECT * FROM expenses WHERE id = %s AND company_id = %s"
+        cursor.execute(select_query, (id, company_id))
+        expense_record = cursor.fetchone()
+        
+        if not expense_record:
+            return jsonify({"error": "Expense not found or does not belong to the specified company"}), 404
+
+        # Delete query
+        delete_query = "DELETE FROM expenses WHERE id = %s AND company_id = %s"
+        cursor.execute(delete_query, (id, company_id))
+        connection.commit()
 
         return jsonify({"message": "Expense entry deleted successfully"}), 200
 
@@ -281,7 +302,7 @@ def delete_expense(id):
             cursor.close()
             connection.close()
 
-# Route for editing an expense entry
+
 @app.route('/api/expenses/<int:id>', methods=['PUT'])
 def edit_expense(id):
     data = request.json
@@ -292,11 +313,24 @@ def edit_expense(id):
         
         cursor = connection.cursor()
 
+        # Verify if the expense exists and belongs to the specified company_id
+        company_id = request.args.get('company_id')
+        if not company_id:
+            return jsonify({"error": "company_id is required"}), 400
+
+        # Check if the expense with the provided id and company_id exists
+        select_query = "SELECT * FROM expenses WHERE id = %s AND company_id = %s"
+        cursor.execute(select_query, (id, company_id))
+        expense_record = cursor.fetchone()
+        
+        if not expense_record:
+            return jsonify({"error": "Expense not found or does not belong to the specified company"}), 404
+
         # Update query
         update_query = """
             UPDATE expenses 
             SET date = %s, category = %s, amount = %s, notes = %s, payment_method = %s
-            WHERE id = %s
+            WHERE id = %s AND company_id = %s
         """
         cursor.execute(update_query, (
             data['date'],
@@ -304,12 +338,10 @@ def edit_expense(id):
             data['amount'],
             data.get('notes', None),
             data.get('payment_method', None),
-            id
+            id,
+            company_id
         ))
         connection.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({"error": "Expense not found"}), 404
 
         return jsonify({"message": "Expense entry updated successfully"}), 200
 

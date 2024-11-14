@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import mysql.connector
 from mysql.connector import Error
 from decimal import Decimal
@@ -19,33 +19,41 @@ def db_connection():
         print(f"Error: {e}")
         return None
 
-# API to get income vs expenses data for bar chart
+# API to get income vs expenses data for bar chart, with company_id filter
 @app.route('/api/financials', methods=['GET'])
 def get_financials():
     try:
+        # Get the company_id from query parameters
+        company_id = request.args.get('company_id')
+        
+        if not company_id:
+            return jsonify({'error': 'company_id is required'}), 400
+        
         connection = db_connection()
         cursor = connection.cursor(dictionary=True)
         
-        # Query to get total income per project
+        # Query to get total income per project for a specific company
         query_income = """
             SELECT source AS project_name, SUM(amount) AS total_income
             FROM income
+            WHERE company_id = %s
             GROUP BY source
         """
         
-        # Query to get total expenses per project
+        # Query to get total expenses per project for a specific company
         query_expenses = """
             SELECT category AS project_name, SUM(amount) AS total_expenses
             FROM expenses
+            WHERE company_id = %s
             GROUP BY category
         """
         
         # Fetch income data
-        cursor.execute(query_income)
+        cursor.execute(query_income, (company_id,))
         income_data = cursor.fetchall()
 
         # Fetch expenses data
-        cursor.execute(query_expenses)
+        cursor.execute(query_expenses, (company_id,))
         expense_data = cursor.fetchall()
 
         # Merge income and expenses data by project_name
